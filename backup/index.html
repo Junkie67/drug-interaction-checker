@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Drug Interaction Checker — Live demo</title>
+  <meta name="description" content="Interactive drug interaction checker using openFDA labels. Informational demo only." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Serif+4:wght@600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f7fbfa;
+      --panel:#ffffff;
+      --muted:#5b6b68;
+      --teal:#0ea79a;
+      --teal-2:#16c1b1;
+      --accent:#f5a623; /* amber for caution */
+      --danger:#e5504b;
+      --glass: rgba(14,167,154,0.06);
+      --line: rgba(6,22,20,0.06);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
+      --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+      --radius:14px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#f9fdfc 0%,var(--bg) 60%);color:#083435;font-family:var(--sans);-webkit-font-smoothing:antialiased}
+    .wrap{max-width:1100px;margin:28px auto;padding:20px}
+
+    /* header */
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,var(--teal),var(--teal-2));display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-family:var(--mono);box-shadow:0 8px 22px rgba(14,167,154,0.14)}
+    .brand h1{font-family:'Source Serif 4',serif;font-size:18px;margin:0;color:#06221f}
+    .brand p{margin:0;font-size:12px;color:var(--muted)}
+    .links a{color:var(--teal);text-decoration:none;font-weight:600;font-size:13px}
+
+    /* main layout */
+    main{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}
+    @media (max-width:980px){ main{grid-template-columns:1fr} }
+
+    .card{background:var(--panel);border-radius:var(--radius);padding:20px;border:1px solid var(--line);box-shadow:0 8px 30px rgba(8,34,32,0.04)}
+    .intro h2{margin:0 0 8px;font-size:20px;color:#04302e}
+    .intro p{margin:0;color:var(--muted);line-height:1.45}
+
+    /* demo grid */
+    .demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    @media (max-width:700px){ .demo-grid{grid-template-columns:1fr} }
+
+    .input-panel{padding:14px;border-radius:12px;border:1px dashed var(--glass);background:linear-gradient(180deg,#ffffff,#fbfffe)}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type=text]{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:15px;outline:none}
+    input[type=text]:focus{box-shadow:0 6px 18px rgba(14,167,154,0.09);border-color:var(--teal)}
+    .controls{display:flex;align-items:center;gap:12px;margin-top:10px}
+    .btn{background:linear-gradient(90deg,var(--teal),var(--teal-2));color:#04211e;border:none;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(22,178,164,0.12)}
+    .btn:active{transform:translateY(1px)}
+    .meta-note{font-size:13px;color:var(--muted)}
+
+    /* output card */
+    .output{padding:14px;border-radius:12px;border:1px solid rgba(6,22,20,0.04);background:linear-gradient(180deg,#ffffff,#f7fffc);min-height:160px}
+    .sev{display:inline-block;padding:6px 12px;border-radius:999px;font-weight:700;font-family:var(--mono);margin-bottom:8px}
+    .sev.mild{background:linear-gradient(90deg,rgba(47,122,79,0.08),rgba(47,122,79,0.03));color:#1f7b5b}
+    .sev.moderate{background:linear-gradient(90deg,rgba(245,158,11,0.08),rgba(245,158,11,0.03));color:#b56802}
+    .sev.severe{background:linear-gradient(90deg,rgba(229,80,75,0.08),rgba(229,80,75,0.03));color:#a72b26}
+    .out-text{font-size:15px;color:#234b47;line-height:1.5;margin-top:6px}
+    pre.snip{background:#f3fffb;padding:12px;border-radius:10px;color:#0b2a27;border:1px solid rgba(14,167,154,0.06);overflow:auto;font-family:var(--mono);font-size:13px;margin-top:12px}
+
+    /* right column */
+    .meta{padding:16px;border-radius:12px;border:1px solid var(--line);background:linear-gradient(180deg,#ffffff,#fbfffe)}
+    .pill{display:inline-block;padding:8px 12px;border-radius:999px;background:linear-gradient(90deg,var(--teal),var(--teal-2));color:#04211e;font-weight:800;font-family:var(--mono)}
+    .meta h4{margin:12px 0 8px;color:#05302c}
+    .meta p{margin:0;color:var(--muted);font-size:14px}
+
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+
+    /* small helpers */
+    .disclaimer{margin-top:10px;background:#fff7ed;border:1px solid rgba(245,158,11,0.07);padding:10px;border-radius:8px;color:#8a4f03;font-size:13px}
+    .muted-small{font-size:13px;color:var(--muted)}
+
+    /* accessible focus */
+    :focus{outline-offset:3px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">Rx</div>
+        <div>
+          <h1>Drug Interaction Checker</h1>
+          <p>Live demo • openFDA labels • informational</p>
+        </div>
+      </div>
+      <div class="links"><a href="https://github.com/Junkie67/drug-interaction-checker" target="_blank" rel="noopener">Source ↗</a></div>
+    </header>
+
+    <main>
+      <section class="card intro" aria-labelledby="demo-title">
+        <h2 id="demo-title">Live interaction checks</h2>
+        <p>Type two drug names (brand or generic). The demo fetches official FDA label sections and flags interaction language with a conservative severity grade.</p>
+
+        <div class="demo-grid" role="region" aria-live="polite" aria-label="Live demo">
+          <div class="input-panel" aria-label="Input panel">
+            <div>
+              <label for="drugA">Drug A</label>
+              <input id="drugA" type="text" value="Warfarin" placeholder="e.g., warfarin">
+            </div>
+            <div style="margin-top:10px">
+              <label for="drugB">Drug B</label>
+              <input id="drugB" type="text" value="Aspirin" placeholder="e.g., aspirin">
+            </div>
+
+            <div class="controls" style="margin-top:12px">
+              <button id="check" class="btn" aria-live="polite">Check interaction</button>
+              <div class="meta-note">No API keys • Public FDA data</div>
+            </div>
+
+            <div class="disclaimer" role="note">Informational only — not medical advice. Consult a qualified healthcare professional for clinical decisions.</div>
+          </div>
+
+          <div class="output card" id="output" aria-atomic="true">
+            <div id="sevWrap"><span class="sev mild" id="sev">—</span></div>
+            <div class="out-text" id="summary">Click "Check interaction" to fetch label excerpts and a conservative severity grade.</div>
+            <pre class="snip" id="snippet" style="display:none">// Label snippets will appear here (evidence from FDA labels)</pre>
+          </div>
+        </div>
+      </section>
+
+      <aside class="meta card" aria-label="How it works">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="pill" aria-hidden="true">LIVE</div>
+          <div class="muted-small">openFDA</div>
+        </div>
+        <h4>How it works</h4>
+        <p>We fetch label sections such as warnings, interactions and adverse reactions. A small rule-based grader looks for high-signal phrases (contraindicated, monitor closely, dose adjustment) and returns a conservative grade.</p>
+
+        <h4 style="margin-top:12px">Planned v2</h4>
+        <p>Serverless LLM summarizer (Cloudflare/Vercel) to provide clearer plain-language explanations. Keys remain server-side.</p>
+      </aside>
+    </main>
+
+    <footer>
+      <p>Made by Simon Mwaura • <a href="mailto:simonmwaura670@gmail.com" style="color:var(--teal)">simonmwaura670@gmail.com</a></p>
+    </footer>
+  </div>
+
+<script>
+  // openFDA lookup + rule-based grader (keeps functionality)
+  async function fetchLabelText(name) {
+    if (!name) return '';
+    const q = encodeURIComponent('openfda.brand_name:"' + name + '" OR openfda.generic_name:"' + name + '"');
+    const url = 'https://api.fda.gov/drug/label.json?search=' + q + '&limit=1';
+    try {
+      const r = await fetch(url);
+      if (!r.ok) return '';
+      const j = await r.json();
+      if (!j.results || j.results.length === 0) return '';
+      const item = j.results[0];
+      const fields = ['drug_interactions','warnings_and_cautions','contraindications','adverse_reactions','precautions','clinical_pharmacology','description'];
+      let text = '';
+      for (const f of fields) {
+        if (item[f]) {
+          if (Array.isArray(item[f])) text += '\n' + item[f].join('\n');
+          else text += '\n' + String(item[f]);
+        }
+      }
+      // fallback: stringify some text fields
+      if (!text) {
+        for (const k in item) {
+          const v = item[k];
+          if (typeof v === 'string') text += '\n' + v;
+          else if (Array.isArray(v)) text += '\n' + v.join('\n');
+        }
+      }
+      return text.trim();
+    } catch (err) {
+      console.error('openFDA fetch error', err);
+      return '';
+    }
+  }
+
+  function gradeSeverity(textA, textB) {
+    const combined = ((textA||'') + '\n' + (textB||''))).toLowerCase();
+    const severe = ['contraindicat','black box','do not coadminister','avoid concurrent use','avoid use with','should not be used','life-threatening'];
+    const moderate = ['monitor','dose adjustment','may increase','use with caution','reduce dose','closely monitor','increase risk'];
+    const mild = ['may cause','adverse reaction','side effect','gastrointestinal','nausea','dizziness'];
+
+    if (severe.some(k => combined.includes(k))) return {level:'Severe', cls:'severe', msg:'High-risk language found — consult a clinician.'};
+    if (moderate.some(k => combined.includes(k))) return {level:'Moderate', cls:'moderate', msg:'Caution advised; monitoring or dose adjustment may be required.'};
+    if (mild.some(k => combined.includes(k))) return {level:'Mild', cls:'mild', msg:'Potential mild interactions — monitor for side effects.'};
+    return {level:'No clear interaction', cls:'mild', msg:'No strong interaction language found — professional review recommended.'};
+  }
+
+  function shortSnippet(text) {
+    if (!text) return '';
+    // remove extra whitespace and truncate sensibly
+    const t = text.replace(/\s+/g,' ').trim();
+    return t.slice(0,1200) + (t.length>1200? ' …' : '');
+  }
+
+  document.getElementById('check').addEventListener('click', async function(){
+    const a = document.getElementById('drugA').value.trim();
+    const b = document.getElementById('drugB').value.trim();
+    const sev = document.getElementById('sev');
+    const sum = document.getElementById('summary');
+    const snip = document.getElementById('snippet');
+
+    // immediate UX change
+    sum.textContent = 'Looking up official labels…';
+    snip.style.display = 'none';
+    sev.textContent = '—';
+    sev.className = 'sev';
+
+    try {
+      const [textA, textB] = await Promise.all([fetchLabelText(a), fetchLabelText(b)]);
+      const grade = gradeSeverity(textA, textB);
+
+      // update UI
+      sev.textContent = grade.level.toUpperCase();
+      sev.className = 'sev ' + grade.cls;
+      sum.textContent = grade.msg;
+
+      const combined = (textA? 'LABEL A:\n' + textA + '\n---\n' : '') + (textB? 'LABEL B:\n' + textB : '');
+      if (combined) {
+        snip.textContent = shortSnippet(combined);
+        snip.style.display = 'block';
+      } else {
+        snip.textContent = 'No label text found for the given names — try alternate brand or generic names.';
+        snip.style.display = 'block';
+      }
+      // gentle focus/announce for screen readers
+      snip.setAttribute('tabindex','0');
+      snip.focus({preventScroll:true});
+    } catch (e) {
+      sum.textContent = 'Lookup failed — please try again.';
+      console.error(e);
+    }
+  });
+</script>
+</body>
+</html>
