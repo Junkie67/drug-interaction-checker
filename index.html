@@ -1,148 +1,513 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Drug Interaction Checker — openFDA demo</title>
-  <meta name="description" content="Client-side demo: checks two drugs for interaction language using openFDA labels. Informational only.">
-  <style>
-    :root{--bg:#f6f7f5; --card:#fff; --ink:#1b2027; --muted:#57616a; --brand:#1f5c57; --danger:#a6362c; --warn:#b3781f; --safe:#2f7a4f}
-    *{box-sizing:border-box} body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin:0;background:var(--bg);color:var(--ink);padding:28px}
-    .wrap{max-width:920px;margin:0 auto}
-    header{margin-bottom:20px}
-    h1{margin:0 0 6px;font-size:22px}
-    p.lead{margin:0;color:var(--muted)}
-    .card{background:var(--card);border:1px solid rgba(27,32,39,0.06);padding:18px;border-radius:8px;margin-top:18px}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    input[type=text]{padding:8px 10px;border:1px solid rgba(27,32,39,0.08);border-radius:6px;min-width:200px}
-    button{background:var(--brand);color:white;border:none;padding:9px 14px;border-radius:6px;cursor:pointer}
-    .result{display:none;margin-top:14px;padding:14px;border-radius:6px;border:1px solid rgba(27,32,39,0.06)}
-    .tag{display:inline-block;padding:6px 10px;border-radius:6px;font-weight:600}
-    .tag.safe{background:#e7f5ec;color:var(--safe);border:1px solid rgba(47,122,79,0.12)}
-    .tag.warn{background:#f5ecd6;color:var(--warn);border:1px solid rgba(179,120,31,0.12)}
-    .tag.danger{background:#f3dfdb;color:var(--danger);border:1px solid rgba(166,54,44,0.12)}
-    .snippet{white-space:pre-wrap;margin-top:10px;color:var(--muted);font-size:14px}
-    .footer{margin-top:22px;color:var(--muted);font-size:13px}
-    a.inline{color:var(--brand);text-decoration:none}
-    .disclaimer{margin-top:12px;background:#fff8f7;border:1px solid rgba(166,54,44,0.08);padding:10px;border-radius:6px;color:var(--danger)}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drug Interaction Checker — Simon Mwaura</title>
+<meta name="description" content="Live drug interaction checker powered by openFDA label data. Client-side, no keys, no data stored.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0E0D;
+    --bg2:#0F1613;
+    --panel:#111815;
+    --panel-2:#0D1311;
+    --ink:#E7F2ED;
+    --ink-soft:#8AA298;
+    --ink-dim:#5C716A;
+    --brand:#34E5B0;
+    --brand-dim:#1E8A6C;
+    --safe:#34E5B0;
+    --safe-bg:rgba(52,229,176,0.08);
+    --warn:#FFB020;
+    --warn-bg:rgba(255,176,32,0.09);
+    --danger:#FF5C6A;
+    --danger-bg:rgba(255,92,106,0.09);
+    --line:rgba(140,190,170,0.14);
+    --line-bright:rgba(52,229,176,0.4);
+    --mono:'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
+    --sans:'IBM Plex Sans', -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--sans); line-height:1.55;
+    background-image:
+      linear-gradient(var(--bg) 0%, var(--bg2) 100%),
+      repeating-linear-gradient(0deg, rgba(52,229,176,0.035) 0px, rgba(52,229,176,0.035) 1px, transparent 1px, transparent 42px),
+      repeating-linear-gradient(90deg, rgba(52,229,176,0.035) 0px, rgba(52,229,176,0.035) 1px, transparent 1px, transparent 42px);
+    background-attachment:fixed;
+    min-height:100vh;
+    position:relative;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:radial-gradient(ellipse 700px 400px at 15% -5%, rgba(52,229,176,0.10), transparent 60%),
+               radial-gradient(ellipse 600px 400px at 100% 10%, rgba(255,176,32,0.05), transparent 60%);
+  }
+  .wrap{max-width:820px; margin:0 auto; padding:0 24px; position:relative; z-index:1;}
+  :focus-visible{outline:2px solid var(--brand); outline-offset:3px;}
+  a{color:var(--brand);}
+
+  @keyframes blink{50%{opacity:0;}}
+  @keyframes pulse-dot{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- HUD header ---------- */
+  .hud{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 0; border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-size:11.5px; color:var(--ink-dim);
+    letter-spacing:0.03em; flex-wrap:wrap; gap:10px;
+  }
+  .hud-item{display:flex; align-items:center; gap:6px;}
+  .status-dot{width:6px; height:6px; border-radius:50%; background:var(--brand); box-shadow:0 0 8px var(--brand); animation:pulse-dot 2s ease-in-out infinite;}
+  .back{color:var(--ink-soft); text-decoration:none;}
+  .back:hover{color:var(--brand);}
+
+  /* ---------- Header ---------- */
+  header{padding:52px 0 34px;}
+  .prompt-line{
+    font-family:var(--mono); font-size:13px; color:var(--brand-dim); margin:0 0 16px;
+  }
+  .prompt-line .cursor{display:inline-block; width:8px; height:15px; background:var(--brand); margin-left:2px; animation:blink 1s step-end infinite; vertical-align:middle;}
+  h1{
+    font-family:var(--mono); font-weight:700; font-size:clamp(26px,4.4vw,38px);
+    margin:0 0 16px; line-height:1.15; letter-spacing:-0.01em;
+    background:linear-gradient(90deg, var(--ink), var(--brand));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  header p.lede{color:var(--ink-soft); font-size:15.5px; max-width:60ch; margin:0;}
+
+  /* ---------- Terminal panel ---------- */
+  .terminal{
+    margin-top:34px; background:var(--panel); border:1px solid var(--line);
+    border-radius:8px; overflow:hidden;
+    box-shadow:0 0 0 1px rgba(0,0,0,0.3), 0 20px 60px -30px rgba(52,229,176,0.15);
+    position:relative;
+  }
+  .terminal::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, var(--brand), transparent);
+    opacity:0.6;
+  }
+  .term-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 16px; border-bottom:1px solid var(--line); background:var(--panel-2);
+  }
+  .term-dots{display:flex; gap:6px;}
+  .term-dots span{width:9px; height:9px; border-radius:50%; background:var(--line);}
+  .term-title{font-family:var(--mono); font-size:12px; color:var(--ink-dim);}
+  .term-body{padding:22px 22px 26px;}
+
+  .field-row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;}
+  .field{flex:1 1 220px;}
+  .field label{
+    display:block; font-family:var(--mono); font-size:11px; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--brand-dim); margin-bottom:7px;
+  }
+  .field label::before{content:'$ '; color:var(--ink-dim);}
+  .field input{
+    width:100%; padding:11px 13px; font-family:var(--mono); font-size:15px;
+    border:1px solid var(--line); border-radius:5px; background:var(--bg2); color:var(--ink);
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .field input:focus{border-color:var(--brand); box-shadow:0 0 0 3px rgba(52,229,176,0.12); outline:none;}
+
+  #checkBtn{
+    font-family:var(--mono); font-weight:600; font-size:14px;
+    background:var(--brand); color:#04211A; border:none; border-radius:5px;
+    padding:12px 24px; cursor:pointer; letter-spacing:0.02em;
+    transition:background .2s, box-shadow .2s, transform .1s;
+    box-shadow:0 0 20px -4px rgba(52,229,176,0.5);
+  }
+  #checkBtn:hover{background:#4FF5C4; box-shadow:0 0 28px -2px rgba(52,229,176,0.7);}
+  #checkBtn:active{transform:translateY(1px);}
+  #checkBtn:disabled{background:var(--line); color:var(--ink-dim); cursor:not-allowed; box-shadow:none;}
+  #checkBtn .spinner{
+    display:none; width:12px; height:12px; border:2px solid rgba(4,33,26,0.3);
+    border-top-color:#04211A; border-radius:50%; margin-right:8px;
+    animation:spin .6s linear infinite; vertical-align:-2px;
+  }
+  #checkBtn.loading .spinner{display:inline-block;}
+
+  #status{font-family:var(--mono); font-size:12.5px; color:var(--ink-dim); margin-top:14px; min-height:18px;}
+
+  /* ---------- Result ---------- */
+  .result{
+    margin-top:20px; border-radius:6px; border:1px solid var(--line);
+    padding:18px 20px; background:var(--bg2);
+    opacity:0; transform:translateY(8px);
+    transition:opacity .4s ease, transform .4s ease;
+    position:relative; overflow:hidden;
+  }
+  .result.show{opacity:1; transform:translateY(0);}
+  .result-head{display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
+  .sev-tag{
+    font-family:var(--mono); font-size:12px; font-weight:700; letter-spacing:0.04em;
+    padding:5px 12px; border-radius:4px; border:1px solid currentColor;
+  }
+  .sev-tag.severe{background:var(--danger-bg); color:var(--danger); text-shadow:0 0 12px rgba(255,92,106,0.5);}
+  .sev-tag.moderate{background:var(--warn-bg); color:var(--warn); text-shadow:0 0 12px rgba(255,176,32,0.4);}
+  .sev-tag.mild{background:var(--safe-bg); color:var(--safe); text-shadow:0 0 12px rgba(52,229,176,0.4);}
+  .sev-tag.none{background:rgba(140,190,170,0.08); color:var(--ink-dim);}
+  .result p{margin:0 0 8px; font-size:14.5px; color:var(--ink-soft); font-family:var(--sans);}
+  .result p:last-child{margin-bottom:0;}
+  pre.snippet{
+    background:var(--panel-2); border:1px solid var(--line); border-radius:5px;
+    padding:12px 14px; font-family:var(--mono); font-size:12.5px; color:var(--ink-soft);
+    white-space:pre-wrap; word-break:break-word; margin:10px 0 0; max-height:200px; overflow-y:auto;
+  }
+
+  .loading-bar{
+    height:2px; width:100%; background:var(--line); border-radius:2px; overflow:hidden;
+    margin-top:14px; display:none; position:relative;
+  }
+  .loading-bar.active{display:block;}
+  .loading-bar::after{
+    content:''; position:absolute; top:0; left:0; display:block; height:100%; width:40%; background:var(--brand);
+    box-shadow:0 0 8px var(--brand);
+    animation:sweep 1.1s ease-in-out infinite;
+  }
+  @keyframes sweep{
+    0%{transform:translateX(-100%);}
+    100%{transform:translateX(350%);}
+  }
+
+  /* ---------- Info strip ---------- */
+  .info-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:32px;
+  }
+  @media (max-width:640px){ .info-grid{grid-template-columns:1fr;} }
+  .info-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:16px;
+    transition:border-color .2s, transform .2s;
+  }
+  .info-card:hover{border-color:var(--line-bright); transform:translateY(-2px);}
+  .info-card .k{font-family:var(--mono); font-size:11px; color:var(--brand); text-transform:uppercase; letter-spacing:0.06em; margin:0 0 8px;}
+  .info-card p{margin:0; font-size:13.5px; color:var(--ink-soft);}
+
+  .disclaimer{
+    margin-top:28px; padding:16px 18px; border:1px solid rgba(255,176,32,0.3);
+    background:var(--warn-bg); border-radius:6px; font-size:13.5px; color:#E8C883;
+    font-family:var(--sans);
+  }
+  .disclaimer strong{color:var(--warn);}
+
+  footer{padding:40px 0 60px; font-family:var(--mono); font-size:12px; color:var(--ink-dim); border-top:1px solid var(--line); margin-top:40px;}
+  footer .wrap{display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; padding-top:24px;}
+  footer a{color:var(--ink-soft);}
+  footer a:hover{color:var(--brand);}
+
+  /* ---------- Auth ---------- */
+  .auth-toggle{display:flex; gap:0; margin-bottom:18px; border:1px solid var(--line); border-radius:5px; overflow:hidden; width:fit-content;}
+  .auth-toggle button{
+    font-family:var(--mono); font-size:12.5px; padding:8px 16px; background:transparent;
+    color:var(--ink-dim); border:none; cursor:pointer; transition:background .2s, color .2s;
+  }
+  .auth-toggle button.active{background:var(--brand); color:#04211A; font-weight:600;}
+  .auth-error{
+    font-family:var(--mono); font-size:12.5px; color:var(--danger); margin-top:12px; min-height:16px;
+  }
+  .auth-hint{font-family:var(--mono); font-size:11.5px; color:var(--ink-dim); margin-top:14px;}
+  #signOutBtn{
+    background:none; border:1px solid var(--line); color:var(--ink-soft); font-family:var(--mono);
+    font-size:11px; padding:3px 9px; border-radius:4px; cursor:pointer; margin-left:6px;
+  }
+  #signOutBtn:hover{border-color:var(--danger); color:var(--danger);}
+  #appContent{display:none;}
+  #appContent.unlocked{display:block;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Drug Interaction Checker (openFDA demo)</h1>
-      <p class="lead">Enter two drug names. This client-side demo pulls official label text from openFDA and flags likely interaction language using simple rules. Informational only — not medical advice.</p>
-    </header>
 
-    <div class="card">
-      <div class="row">
-        <div>
-          <label for="drugA">Drug A</label><br>
-          <input id="drugA" type="text" value="Warfarin" placeholder="e.g., Warfarin">
-        </div>
-        <div>
-          <label for="drugB">Drug B</label><br>
-          <input id="drugB" type="text" value="Aspirin" placeholder="e.g., Aspirin">
-        </div>
-        <div style="align-self:end">
-          <button id="check">Check interaction</button>
-        </div>
+<div class="wrap">
+  <div class="hud">
+    <a href="https://junkie67.github.io/junkie-portfolio/" class="back">&larr; portfolio</a>
+    <div class="hud-item"><span class="status-dot"></span> LIVE</div>
+    <div class="hud-item">SOURCE: openFDA</div>
+    <div class="hud-item" id="authStatus">AUTH: signed out</div>
+  </div>
+
+  <header>
+    <p class="prompt-line">$ ./drug-interaction-checker --mode=client<span class="cursor"></span></p>
+    <h1>Drug Interaction Checker</h1>
+    <p class="lede">Query the FDA's public label database in real time. Enter two medications, get back the actual interaction language from official labeling, graded by severity. Sign in to unlock the live checker.</p>
+  </header>
+
+  <!-- ===== AUTH GATE ===== -->
+  <div id="authGate">
+    <div class="terminal">
+      <div class="term-head">
+        <div class="term-dots"><span></span><span></span><span></span></div>
+        <div class="term-title" id="authTermTitle">sign-in.sh</div>
+        <div style="width:40px"></div>
       </div>
-
-      <div id="loading" style="display:none;margin-top:12px;color:var(--muted)">Looking up labels…</div>
-
-      <div id="out" class="result" aria-live="polite">
-        <div><span id="sevTag" class="tag">—</span> <strong id="summary">No result yet</strong></div>
-        <div class="snippet" id="snippet"></div>
-        <div class="disclaimer">This tool is for informational/demo purposes only and is not medical advice. Consult a qualified healthcare professional for clinical decisions.</div>
+      <div class="term-body">
+        <div class="auth-toggle">
+          <button type="button" id="tabSignIn" class="active">Sign in</button>
+          <button type="button" id="tabSignUp">Create account</button>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex-basis:100%;">
+            <label for="authEmail">email</label>
+            <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex-basis:100%;">
+            <label for="authPassword">password</label>
+            <input id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password">
+          </div>
+        </div>
+        <button id="authSubmit" type="button"><span class="spinner"></span><span class="btn-label">Sign in</span></button>
+        <div class="auth-error" id="authError"></div>
+        <div class="auth-hint">// accounts are handled by Firebase Authentication — passwords are never stored or seen by this site directly</div>
       </div>
-    </div>
-
-    <div class="footer">
-      <p>Project repo: <a class="inline" href="https://github.com/Junkie67/drug-interaction-checker" target="_blank" rel="noopener">github.com/Junkie67/drug-interaction-checker</a> — Portfolio: https://Junkie67.github.io/junkie-portfolio/</p>
     </div>
   </div>
 
+  <!-- ===== APP CONTENT (unlocked after sign-in) ===== -->
+  <div id="appContent">
+  <div class="terminal">
+    <div class="term-head">
+      <div class="term-dots"><span></span><span></span><span></span></div>
+      <div class="term-title">interaction-check.sh</div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="term-body">
+      <div class="field-row">
+        <div class="field">
+          <label for="drugA">drug_a</label>
+          <input id="drugA" type="text" value="Warfarin" placeholder="e.g. Warfarin">
+        </div>
+        <div class="field">
+          <label for="drugB">drug_b</label>
+          <input id="drugB" type="text" value="Aspirin" placeholder="e.g. Aspirin">
+        </div>
+      </div>
+      <button id="checkBtn" type="button"><span class="spinner"></span><span class="btn-label">Run check</span></button>
+      <div class="loading-bar" id="loadingBar"></div>
+      <div id="status"></div>
+
+      <div class="result" id="result">
+        <div class="result-head">
+          <span class="sev-tag none" id="sevTag">—</span>
+        </div>
+        <p id="summary">Run a check to see results here.</p>
+        <pre class="snippet" id="snippet" style="display:none;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <p class="k">01 · Data</p>
+      <p>Live queries against openFDA's official drug label endpoint — no local dataset, always current.</p>
+    </div>
+    <div class="info-card">
+      <p class="k">02 · Logic</p>
+      <p>Rule-based NLP scans each label for mentions of the paired drug and grades severity by keyword signal.</p>
+    </div>
+    <div class="info-card">
+      <p class="k">03 · Stack</p>
+      <p>Vanilla JS, zero dependencies, fully client-side — runs entirely in your browser.</p>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Not medical advice.</strong> This tool surfaces interaction language published in FDA drug labels for informational and educational purposes only. It is not a substitute for guidance from a licensed pharmacist or doctor.
+  </div>
+  </div><!-- /#appContent -->
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Built by Simon Mwaura</span>
+    <span><a href="https://github.com/Junkie67/drug-interaction-checker" target="_blank" rel="noopener">github.com/Junkie67/drug-interaction-checker</a></span>
+  </div>
+</footer>
+
 <script>
-  // openFDA fetch + simple rule-based grader
-  async function fetchLabelText(name) {
-    if (!name) return '';
-    const q = encodeURIComponent('openfda.brand_name:"' + name + '" OR openfda.generic_name:"' + name + '"');
-    const url = 'https://api.fda.gov/drug/label.json?search=' + q + '&limit=1';
-    try {
-      const r = await fetch(url);
-      if (!r.ok) return '';
-      const j = await r.json();
-      if (!j.results || j.results.length === 0) return '';
-      const item = j.results[0];
-      const fields = ['drug_interactions','warnings_and_cautions','contraindications','adverse_reactions','precautions','clinical_pharmacology','description'];
-      let text = '';
-      for (const f of fields) {
-        if (item[f]) {
-          if (Array.isArray(item[f])) text += '\n' + item[f].join('\n');
-          else text += '\n' + String(item[f]);
-        }
-      }
-      // fallback: stringify some text fields
-      if (!text) {
-        for (const k in item) {
-          const v = item[k];
-          if (typeof v === 'string') text += '\n' + v;
-          else if (Array.isArray(v)) text += '\n' + v.join('\n');
-        }
-      }
-      return text.trim();
-    } catch (err) {
-      console.error('openFDA fetch error', err);
-      return '';
+async function fetchLabelText(name){
+  if(!name) return '';
+  const tryFetch = async (field) => {
+    const q = encodeURIComponent(name.trim());
+    const url = `https://api.fda.gov/drug/label.json?search=openfda.${field}:"${q}"&limit=1`;
+    try{
+      const res = await fetch(url);
+      if(!res.ok) return null;
+      const data = await res.json();
+      if(!data.results || !data.results[0]) return null;
+      const r = data.results[0];
+      return (r.drug_interactions || []).join(' ') || (r.warnings || []).join(' ') || '';
+    }catch(e){ return null; }
+  };
+  return (await tryFetch('generic_name')) || (await tryFetch('brand_name')) || '';
+}
+
+function gradeSeverity(textA, textB){
+  const combined = ((textA||'') + ' ' + (textB||'')).toLowerCase();
+  const severe = ['contraindicat','black box warning','do not coadminister','avoid concurrent use','avoid use with','should not be used','life-threatening','fatal'];
+  const moderate = ['monitor','dose adjustment','may increase','use with caution','reduce dose','closely monitor','increased risk','caution should be exercised'];
+  const mild = ['may cause','adverse reaction','side effect','gastrointestinal','nausea','dizziness'];
+
+  if(severe.some(k => combined.includes(k))) return {level:'SEVERE', cls:'severe', msg:'High-risk language found in the label text — flag for clinician review before combining.'};
+  if(moderate.some(k => combined.includes(k))) return {level:'MODERATE', cls:'moderate', msg:'Caution language found — monitoring or dose adjustment may be advised.'};
+  if(mild.some(k => combined.includes(k))) return {level:'MILD', cls:'mild', msg:'Some interaction-adjacent language found — low signal, but still worth a second look.'};
+  return {level:'NO MATCH', cls:'none', msg:'No explicit interaction language found between these two in the labels retrieved. This does not rule out a real interaction.'};
+}
+
+function shortSnippet(text){
+  if(!text) return 'No label text retrieved for one or both drugs — check spelling or try the generic name.';
+  const t = text.replace(/\s+/g,' ').trim();
+  return t.slice(0, 900) + (t.length > 900 ? ' …' : '');
+}
+
+const btn = document.getElementById('checkBtn');
+const statusEl = document.getElementById('status');
+const loadingBar = document.getElementById('loadingBar');
+const resultEl = document.getElementById('result');
+const sevTag = document.getElementById('sevTag');
+const summary = document.getElementById('summary');
+const snippet = document.getElementById('snippet');
+
+btn.addEventListener('click', async () => {
+  const a = document.getElementById('drugA').value.trim();
+  const b = document.getElementById('drugB').value.trim();
+  if(!a || !b){
+    statusEl.textContent = '// enter both drug names to continue';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.classList.add('loading');
+  loadingBar.classList.add('active');
+  resultEl.classList.remove('show');
+  statusEl.textContent = `// querying openFDA for "${a}" and "${b}"…`;
+
+  try{
+    const [textA, textB] = await Promise.all([fetchLabelText(a), fetchLabelText(b)]);
+    const grade = gradeSeverity(textA, textB);
+
+    sevTag.textContent = grade.level;
+    sevTag.className = 'sev-tag ' + grade.cls;
+    summary.textContent = grade.msg;
+
+    const combinedSnippet = shortSnippet((textA ? `[${a}] ${textA}` : '') + (textB ? `\n\n[${b}] ${textB}` : ''));
+    snippet.textContent = combinedSnippet;
+    snippet.style.display = 'block';
+
+    resultEl.classList.add('show');
+    statusEl.textContent = '// done — result from live openFDA label data';
+  }catch(e){
+    statusEl.textContent = '// lookup failed — try again';
+    console.error(e);
+  }finally{
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    loadingBar.classList.remove('active');
+  }
+});
+</script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    onAuthStateChanged, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  // ===== PASTE YOUR FIREBASE CONFIG HERE (from Firebase Console → Project settings) =====
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  // =========================================================================================
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  const authGate = document.getElementById('authGate');
+  const appContent = document.getElementById('appContent');
+  const authStatus = document.getElementById('authStatus');
+  const authEmail = document.getElementById('authEmail');
+  const authPassword = document.getElementById('authPassword');
+  const authSubmit = document.getElementById('authSubmit');
+  const authError = document.getElementById('authError');
+  const authTermTitle = document.getElementById('authTermTitle');
+  const tabSignIn = document.getElementById('tabSignIn');
+  const tabSignUp = document.getElementById('tabSignUp');
+
+  let mode = 'signin';
+
+  function setMode(next){
+    mode = next;
+    authError.textContent = '';
+    if(mode === 'signin'){
+      tabSignIn.classList.add('active'); tabSignUp.classList.remove('active');
+      authSubmit.querySelector('.btn-label').textContent = 'Sign in';
+      authTermTitle.textContent = 'sign-in.sh';
+      authPassword.setAttribute('autocomplete','current-password');
+    } else {
+      tabSignUp.classList.add('active'); tabSignIn.classList.remove('active');
+      authSubmit.querySelector('.btn-label').textContent = 'Create account';
+      authTermTitle.textContent = 'create-account.sh';
+      authPassword.setAttribute('autocomplete','new-password');
     }
   }
+  tabSignIn.addEventListener('click', () => setMode('signin'));
+  tabSignUp.addEventListener('click', () => setMode('signup'));
 
-  function gradeSeverity(textA, textB) {
-    const combined = (textA + '\n' + textB).toLowerCase();
-    const severe = ['contraindicat','black box warning','do not coadminister','avoid concurrent use','avoid use with','should not be used'];
-    const moderate = ['monitor','dose adjustment','may increase','caution','use with caution','reduce dose','closely monitor'];
-    const mild = ['may cause','adverse reaction','side effect','gastrointestinal','nausea','dizziness'];
+  authSubmit.addEventListener('click', async () => {
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    authError.textContent = '';
+    if(!email || !password){
+      authError.textContent = '// enter both email and password';
+      return;
+    }
+    authSubmit.disabled = true;
+    authSubmit.classList.add('loading');
+    try{
+      if(mode === 'signin'){
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+    }catch(e){
+      authError.textContent = '// ' + (e.message || 'authentication failed').replace('Firebase: ','');
+    }finally{
+      authSubmit.disabled = false;
+      authSubmit.classList.remove('loading');
+    }
+  });
 
-    if (severe.some(k => combined.includes(k))) return {level:'Severe', cls:'danger', advice:'Stop co-administration or consult a clinician; high risk language found.'};
-    if (moderate.some(k => combined.includes(k))) return {level:'Moderate', cls:'warn', advice:'Caution advised; consider monitoring or alternative dosing.'};
-    if (mild.some(k => combined.includes(k))) return {level:'Mild', cls:'safe', advice:'Possible mild interaction; monitor for side effects.'};
-    return {level:'No clear interaction found', cls:'safe', advice:'No strong language found in the labels — still consult a clinician for confirmation.'};
-  }
-
-  function shortSnippet(text) {
-    if (!text) return 'No label text found for this drug in openFDA (try alternative names).';
-    // pick first 800 chars and highlight newlines
-    return text.replace(/\s+/g,' ').slice(0,800) + (text.length>800? '…' : '');
-  }
-
-  document.getElementById('check').addEventListener('click', async function(){
-    const a = document.getElementById('drugA').value.trim();
-    const b = document.getElementById('drugB').value.trim();
-    const out = document.getElementById('out');
-    const loading = document.getElementById('loading');
-    const sevTag = document.getElementById('sevTag');
-    const summary = document.getElementById('summary');
-    const snippet = document.getElementById('snippet');
-
-    out.style.display = 'none';
-    loading.style.display = 'block';
-    loading.textContent = 'Looking up labels for ' + (a||'Drug A') + ' and ' + (b||'Drug B') + '…';
-
-    const [textA, textB] = await Promise.all([fetchLabelText(a), fetchLabelText(b)]);
-
-    loading.style.display = 'none';
-
-    const grade = gradeSeverity(textA, textB);
-    // set tag
-    sevTag.textContent = grade.level.toUpperCase();
-    sevTag.className = 'tag ' + (grade.cls === 'danger'? 'danger' : grade.cls === 'warn'? 'warn' : 'safe');
-
-    summary.textContent = grade.advice;
-    snippet.textContent = shortSnippet((textA||'') + '\n---\n' + (textB||''));
-
-    out.style.display = 'block';
+  onAuthStateChanged(auth, (user) => {
+    if(user){
+      authGate.style.display = 'none';
+      appContent.classList.add('unlocked');
+      authStatus.innerHTML = `AUTH: ${user.email} <button id="signOutBtn">sign out</button>`;
+      document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+    } else {
+      authGate.style.display = 'block';
+      appContent.classList.remove('unlocked');
+      authStatus.textContent = 'AUTH: signed out';
+    }
   });
 </script>
+
 </body>
 </html>
